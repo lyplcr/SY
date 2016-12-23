@@ -1955,11 +1955,6 @@
           <GroupName>Doc</GroupName>
           <Files>
             <File>
-              <FileName>ReadMe.txt</FileName>
-              <FileType>5</FileType>
-              <FilePath>..\Doc\ReadMe.txt</FilePath>
-            </File>
-            <File>
               <FileName>Demo.c</FileName>
               <FileType>1</FileType>
               <FilePath>..\Doc\Demo.c</FilePath>
@@ -1968,6 +1963,11 @@
               <FileName>Demo.h</FileName>
               <FileType>5</FileType>
               <FilePath>..\Doc\Demo.h</FilePath>
+            </File>
+            <File>
+              <FileName>README.md</FileName>
+              <FileType>5</FileType>
+              <FilePath>..\README.md</FilePath>
             </File>
           </Files>
         </Group>

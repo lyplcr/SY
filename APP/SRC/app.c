@@ -173,11 +173,12 @@ static void AppTaskCreate(void)
 */
 void MainTask(void) 
 { 
-	/* 防止窗口闪烁 */	
-	WM_SetCreateFlags(WM_CF_MEMDEV); 
-	
 	/* emWin 初始化 */
 	GUI_Init();  
+	
+	/* 防止窗口闪烁 */	
+	WM_SetCreateFlags(WM_CF_MEMDEV); 
+	WM_EnableMemdev(WM_HBKWIN);
 	
 	/* 更新字库 */
 	UpdateFlashFontTask(NotifyFlashFontProgress_CallBack);

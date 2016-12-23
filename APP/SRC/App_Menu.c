@@ -85,6 +85,7 @@ static const char * _aLang[][SUPPORT_LANGUAGE_NUMS] = {
 *********************************************************************************************************
 */
 static APP_MENU_TypeDef *this;
+static int g_widgetId = ERROR_WIDGET_ID;
 
 /*
 *********************************************************************************************************
@@ -118,6 +119,30 @@ static const char *_GetLang(uint32_t Index)
 	}
 	
 	return p;
+}
+
+/*
+*********************************************************************************************************
+* Function Name : GetFocusListHandle
+* Description	: 获取已经聚焦的链表句柄
+* Input			: None
+* Output		: None
+* Return		: None
+*********************************************************************************************************
+*/
+static LIST_HANDLE_TypeDef *GetFocusListHandle(void)
+{
+	LIST_HANDLE_TypeDef *handle;
+	
+	list_for_each_entry(handle, &this->handleHead, LIST_HANDLE_TypeDef, list)
+	{
+		if (WM_HasFocus(handle->cursorHandle) == true)
+		{
+			return handle;
+		}
+	}
+	
+	return NULL;
 }
 
 /*
@@ -216,6 +241,14 @@ static void Constructor(WM_MESSAGE* pMsg)
 */
 static void Destructor(WM_MESSAGE* pMsg) 
 {
+	{
+		LIST_HANDLE_TypeDef *handle = GetFocusListHandle();
+		if (handle)
+		{
+			g_widgetId = WM_GetId(handle->cursorHandle);			
+		}
+	}
+	
 	WM_DeleteWindow(pMsg->hWin);
 	
 	LIST_HANDLE_TypeDef *handle;
@@ -227,30 +260,6 @@ static void Destructor(WM_MESSAGE* pMsg)
 	delete(this);
 	
 	ECHO(DEBUG_APP_WINDOWS, "[APP] 析构 <菜单> 窗口");
-}
-
-/*
-*********************************************************************************************************
-* Function Name : GetFocusListHandle
-* Description	: 获取已经聚焦的链表句柄
-* Input			: None
-* Output		: None
-* Return		: None
-*********************************************************************************************************
-*/
-static LIST_HANDLE_TypeDef *GetFocusListHandle(void)
-{
-	LIST_HANDLE_TypeDef *handle;
-	
-	list_for_each_entry(handle, &this->handleHead, LIST_HANDLE_TypeDef, list)
-	{
-		if (WM_HasFocus(handle->cursorHandle) == true)
-		{
-			return handle;
-		}
-	}
-	
-	return NULL;
 }
 
 /*
@@ -355,33 +364,23 @@ static void _cbCallback(WM_MESSAGE* pMsg)
 			break;
 		}
 		case WM_SET_FOCUS:
-		{			
-			LIST_HANDLE_TypeDef *handle = NULL;
-			handle = list_first_entry(&this->handleHead, LIST_HANDLE_TypeDef, list);
-			WM_SetFocus(handle->cursorHandle);
-			break;
-		}
-		case WM_GET_RADIOGROUP:	
-		{
-			LIST_HANDLE_TypeDef *handle;
-			
-			list_for_each_entry(handle, &this->handleHead, LIST_HANDLE_TypeDef, list)
+		{		
+			if (g_widgetId == ERROR_WIDGET_ID)
 			{
-				int id = WM_GetId(handle->cursorHandle);
-				switch (id)
+				LIST_HANDLE_TypeDef *handle = NULL;
+				handle = list_first_entry(&this->handleHead, LIST_HANDLE_TypeDef, list);
+				WM_SetFocus(handle->cursorHandle);
+			}
+			else
+			{
+				LIST_HANDLE_TypeDef *handle;
+				list_for_each_entry(handle, &this->handleHead, LIST_HANDLE_TypeDef, list)
 				{
-					case GUI_ID_BUTTON0:
-						BUTTON_SetText(handle->cursorHandle,_GetLang(1));
+					if (WM_GetId(handle->cursorHandle) == g_widgetId)
+					{
+						WM_SetFocus(handle->cursorHandle);
 						break;
-					case GUI_ID_BUTTON1:
-						BUTTON_SetText(handle->cursorHandle,_GetLang(2));
-						break;
-					case GUI_ID_BUTTON2:
-						BUTTON_SetText(handle->cursorHandle,_GetLang(3));
-						break;	
-					case GUI_ID_BUTTON3:
-						BUTTON_SetText(handle->cursorHandle,_GetLang(4));
-						break;	
+					}
 				}
 			}
 			break;

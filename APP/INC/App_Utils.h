@@ -45,6 +45,9 @@
 #define MSG_USER_PAD_CANCEL      			(WM_USER + 2)
 #define MSG_USER_PAD_DELETE       			(WM_USER + 3)
 #define MSG_USER_PAD_CLEAR       			(WM_USER + 4)
+#define MSG_USER_UPDATE       				(WM_USER + 5)
+
+#define ERROR_WIDGET_ID						(-1)
 
 /*
 *********************************************************************************************************

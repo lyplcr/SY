@@ -391,28 +391,6 @@ static void _cbCallback(WM_MESSAGE* pMsg)
 			WM_SetFocus(handle->cursorHandle);
 			break;
 		}
-		case WM_GET_RADIOGROUP:		
-		{
-			LIST_HANDLE_TypeDef *handle;
-			
-			list_for_each_entry(handle, &this->handleHead, LIST_HANDLE_TypeDef, list)
-			{
-				int id = WM_GetId(handle->handleLevel3);
-				switch (id)
-				{
-					case GUI_ID_TEXT0:
-						TEXT_SetText(handle->handleLevel3,_GetLang(1));
-						break;
-					case GUI_ID_TEXT1:
-						TEXT_SetText(handle->handleLevel3,_GetLang(2));
-						break;
-					case GUI_ID_TEXT2:
-						TEXT_SetText(handle->handleLevel3,_GetLang(3));
-						break;					
-				}
-			}
-			break;
-		}
 		default:
 			WM_DefaultProc(pMsg);
 			break;
