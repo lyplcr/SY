@@ -1,16 +1,20 @@
 /*
 *********************************************************************************************************
-* @file    	main.c
+* @file    	bsp_itm.c
 * @author  	SY
 * @version 	V1.0.0
-* @date    	2016-10-11 15:10:28
-* @IDE	 	Keil V5.18.0.0
-* @Chip    	STM32F407VE
-* @brief   	主文件
+* @date    	2016-4-15 14:04:44
+* @IDE	 	V4.70.0.0
+* @Chip    	STM32F107VC
+* @brief   	ITM(Instrumentation TraceMacrocell)接口驱动源文件
 *********************************************************************************************************
 * @attention
-*
-* 
+*	使用JLINK ITM Stimulus功能，使printf输出的数据直接显示在MDK 调试窗口“Debug (printf)”。
+*	无需连接额外的调试串口，只需连接JLINK即可打印调试信息。
+*	使用步骤：
+*		1、"Option for target"中需勾选“Use MicroLIB”
+* 		2、依次进入Target Option->Debug->Setting->Trace选项卡，选择Enable
+*		3、Enable:0x0000001 Privilege:0x00000000
 *********************************************************************************************************
 */
 
@@ -19,15 +23,19 @@
 *                              				Private Includes
 *********************************************************************************************************
 */
-#include "System_Init.h"
-#include "app.h"
+#include "bsp.h"
 
 /*
 *********************************************************************************************************
 *                              				Private define
 *********************************************************************************************************
 */
+#define ITM_Port8(n)    (*((volatile unsigned char *)(0xE0000000+4*n)))
+#define ITM_Port16(n)   (*((volatile unsigned short*)(0xE0000000+4*n)))
+#define ITM_Port32(n)   (*((volatile unsigned long *)(0xE0000000+4*n)))
 
+#define DEMCR           (*((volatile unsigned long *)(0xE000EDFC)))
+#define TRCENA          0x01000000
 
 /*
 *********************************************************************************************************
@@ -64,26 +72,28 @@
 *                              				Private functions
 *********************************************************************************************************
 */
+#if (DEBUG_USE_JLINK)
+
+struct __FILE { int handle; /* Add whatever you need here */ };
+FILE __stdout;
+FILE __stdin;
+
 /*
 *********************************************************************************************************
-* Function Name : main
-* Description	: 主文件
-* Input			: None
-* Output		: None
-* Return		: None
+*	函 数 名: fputc
+*	功能说明: 重定义putc函数，这样可以使用printf函数从串口打印输出
+*	形    参: 无
+*	返 回 值: 无
 *********************************************************************************************************
 */
-int main( void )
-{
-	System_Init();
-
-	ECHO(DEBUG_BSP_INIT, "不应该运行到这里！");
-	
-	while (1) 
-	{
-		;
-	}
+int fputc(int ch, FILE *f) {
+  if (DEMCR & TRCENA) {
+    while (ITM_Port32(0) == 0);
+    ITM_Port8(0) = ch;
+  }
+  return(ch);
 }
 
+#endif
 
 /************************ (C) COPYRIGHT STMicroelectronics **********END OF FILE*************************/

@@ -23,6 +23,7 @@
 #include "App_Menu.h"
 #include "App_SystemParameter.h"
 #include "App_Language.h"
+#include "App_TimeDate.h"
 
 /*
 *********************************************************************************************************
@@ -56,15 +57,15 @@ typedef struct {
 static const char * _aLang[][SUPPORT_LANGUAGE_NUMS] = {
 	{
 		"系统参数设置",
-		"SystemParameterSet",
+		"System Parameter Set",
 	},	//1
 	{
 		"时间日期设置",
-		"TimeDataSet",
+		"Time Data Set",
 	},	//2
 	{
 		"软件激活设置",
-		"SoftwareActiveSet",							
+		"Software Active Set",							
 	},	//3
 	{
 		"语言选择",
@@ -351,6 +352,7 @@ static void _cbCallback(WM_MESSAGE* pMsg)
 						break;
 					case GUI_ID_BUTTON1:
 						Destructor(pMsg);
+						App_TimeDateTaskCreate();
 						break;
 					case GUI_ID_BUTTON2:
 						Destructor(pMsg);

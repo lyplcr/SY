@@ -354,7 +354,7 @@ static void __NotifyKeyPress_CallBack( KEY_TypeDef *keyPtr, uint32_t keyValue )
 {
 	(void)keyPtr;
 	
-	SetRepeatExecuteTime(GetIO_BeepHandle(g_ioDevicePtr),\
+	SetRepeatExecuteTime(GetBeepHandle(),\
 		KEY_BEEP_KEY_CYCLE_NUMS,KEY_BEEP_KEY_ON_TIME_MS,KEY_BEEP_KEY_OFF_TIME_MS);
 }
 

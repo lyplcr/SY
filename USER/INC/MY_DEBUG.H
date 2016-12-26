@@ -70,6 +70,7 @@
 #define DEBUG_KERNEL_INIT					DEBUG_ON	/* 内核初始化 */
 #define DEBUG_KERNEL_KEY					DEBUG_ON	/* 内核按键 */
 #define DEBUG_KERNEL_HID					DEBUG_ON	/* 内核HID设备 */
+#define DEBUG_KERNEL_IO						DEBUG_ON	/* 内核IO */
 
 /*
 *********************************************************************************************************
@@ -97,7 +98,17 @@
 *                              				Exported macro
 *********************************************************************************************************
 */
-
+#if (__DEBUG__ == 0x01U)
+#define ECHO(debug,...)					do {\
+											if ((debug) & DEBUG_ON) {\
+												printf(__VA_ARGS__);\
+												printf("\r\n");\
+											}\
+										} while(0)  
+#else  
+	#define ECHO(debug,...) ((void)0)
+#endif
+	
 /*
 *********************************************************************************************************
 *                              				Exported variables
@@ -109,16 +120,7 @@
 *                              				Exported functions
 *********************************************************************************************************
 */
-#if (__DEBUG__ == 0x01U)
-#define ECHO(debug,...)					do {\
-											if ((debug) & DEBUG_ON) {\
-												printf(__VA_ARGS__);\
-												printf("\r\n");\
-											}\
-										} while(0)  
-#else  
-	#define ECHO(debug,...) ((void)0)
-#endif
+
 
 #endif
 /************************ (C) COPYRIGHT STMicroelectronics **********END OF FILE*************************/

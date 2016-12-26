@@ -34,13 +34,7 @@
 *                              				Private typedef
 *********************************************************************************************************
 */
-struct tagIO_TypeDef {
-	uint32_t inputReg;
-	uint32_t outputReg;
-	uint32_t lampReg;
-	
-	CYCLE_TASK_TypeDef beep;
-};
+
 	
 
 /*
@@ -60,172 +54,20 @@ struct tagIO_TypeDef {
 *                              				Private variables
 *********************************************************************************************************
 */
-struct tagIO_TypeDef g_IO_Device;
-struct tagIO_TypeDef *g_ioDevicePtr = &g_IO_Device;
+static IO_TypeDef g_IO_Device;
+static CYCLE_TASK_TypeDef g_BeepDevice;
 
 /*
 *********************************************************************************************************
 *                              				Private function prototypes
 *********************************************************************************************************
 */
-static void __IO_Task( IO_TypeDef *IO );
-static void InitBeep( IO_TypeDef *IO );
 
 /*
 *********************************************************************************************************
 *                              				Private functions
 *********************************************************************************************************
 */
-/*
-*********************************************************************************************************
-* Function Name : IO_Init
-* Description	: IO初始化
-* Input			: None
-* Output		: None
-* Return		: None
-*********************************************************************************************************
-*/
-void IO_Init( void )
-{
-	InitBeep(g_ioDevicePtr);
-	
-	ECHO(DEBUG_KERNEL_INIT, "IO初始化 .......... OK");
-}
-
-/*
-*********************************************************************************************************
-* Function Name : IO_Task
-* Description	: IO任务
-* Input			: None
-* Output		: None
-* Return		: None
-*********************************************************************************************************
-*/
-void IO_Task( void )
-{
-	__IO_Task(g_ioDevicePtr);
-}
-
-/*
-*********************************************************************************************************
-* Function Name : IO_Task
-* Description	: IO任务
-* Input			: None
-* Output		: None
-* Return		: None
-*********************************************************************************************************
-*/
-static void __IO_Task( IO_TypeDef *IO )
-{
-	/* 输出信号 */
-	{
-		#if 0
-		uint32_t interfaceOutput = IO->outputReg;
-		
-		if ( READ_BIT(interfaceOutput,IO_OUTPUT_MASK_BEEP) )
-		{
-			bsp_SetOutportBit(DO_BEEP);
-		}
-		else
-		{
-			bsp_ClearOutportBit(DO_BEEP);
-		}
-		#endif
-		
-		bsp_OutportCycleTask();
-	}
-	
-	/* 小灯信号 */
-	{
-		uint32_t interfaceLamp = IO->lampReg;
-		
-		if ( READ_BIT(interfaceLamp,IO_LAMP_MASK_COMM) )
-		{
-			bsp_SetLampBit(LAMP_BOARD_COM);
-		}
-		else
-		{
-			bsp_ClearLampBit(LAMP_BOARD_COM);
-		}
-		
-		if ( READ_BIT(interfaceLamp,IO_LAMP_MASK_PUMP_OPEN) )
-		{
-			bsp_SetLampBit(LAMP_PUMP_START);
-		}
-		else
-		{
-			bsp_ClearLampBit(LAMP_PUMP_START);
-		}
-		
-		if ( READ_BIT(interfaceLamp,IO_LAMP_MASK_PUMP_CLOSE) )
-		{
-			bsp_SetLampBit(LAMP_PUMP_STOP);
-		}
-		else
-		{
-			bsp_ClearLampBit(LAMP_PUMP_STOP);
-		}
-		
-		bsp_LampCycleTask();
-	}
-}
-
-/*
-*********************************************************************************************************
-* Function Name : GetIO_BeepHandle
-* Description	: 获取蜂鸣器句柄
-* Input			: None
-* Output		: None
-* Return		: None
-*********************************************************************************************************
-*/
-void *GetIO_BeepHandle( IO_TypeDef *IO )
-{
-	return &IO->beep;
-}
-
-/*
-*********************************************************************************************************
-* Function Name : IO_ReadInput
-* Description	: IO读输入信号
-* Input			: None
-* Output		: None
-* Return		: None
-*********************************************************************************************************
-*/
-uint32_t IO_ReadInput( IO_TypeDef *IO )
-{
-	return IO->inputReg;
-}
-
-/*
-*********************************************************************************************************
-* Function Name : IO_ReadOutput
-* Description	: IO读输出信号
-* Input			: None
-* Output		: None
-* Return		: None
-*********************************************************************************************************
-*/
-uint32_t IO_ReadOutput( IO_TypeDef *IO )
-{
-	return IO->outputReg;
-}
-
-/*
-*********************************************************************************************************
-* Function Name : IO_ReadLamp
-* Description	: IO读小灯信号
-* Input			: None
-* Output		: None
-* Return		: None
-*********************************************************************************************************
-*/
-uint32_t IO_ReadLamp( IO_TypeDef *IO )
-{
-	return IO->lampReg;
-}
-
 /*
 *********************************************************************************************************
 * Function Name : IO_WriteOutputMask
@@ -235,11 +77,11 @@ uint32_t IO_ReadLamp( IO_TypeDef *IO )
 * Return		: None
 *********************************************************************************************************
 */
-void IO_WriteOutputMask( IO_TypeDef *IO, uint32_t clrMask, uint32_t setMask, uint32_t toggleMask )
+void IO_WriteOutputMask( IO_TypeDef *this, uint32_t clrMask, uint32_t setMask, uint32_t revMask )
 {
-	CLEAR_BIT(IO->outputReg,clrMask);
-	SET_BIT(IO->outputReg,setMask);
-	XOR_BIT(IO->outputReg,toggleMask);
+	CLEAR_BIT(this->outputReg, clrMask);
+	SET_BIT(this->outputReg, setMask);
+	XOR_BIT(this->outputReg, revMask);
 }
 
 /*
@@ -251,11 +93,11 @@ void IO_WriteOutputMask( IO_TypeDef *IO, uint32_t clrMask, uint32_t setMask, uin
 * Return		: None
 *********************************************************************************************************
 */
-void IO_WriteLampMask( IO_TypeDef *IO, uint32_t clrMask, uint32_t setMask, uint32_t toggleMask )
+void IO_WriteLampMask( IO_TypeDef *this, uint32_t clrMask, uint32_t setMask, uint32_t revMask )
 {
-	CLEAR_BIT(IO->lampReg,clrMask);
-	SET_BIT(IO->lampReg,setMask);
-	XOR_BIT(IO->lampReg,toggleMask);
+	CLEAR_BIT(this->lampReg, clrMask);
+	SET_BIT(this->lampReg, setMask);
+	XOR_BIT(this->lampReg, revMask);
 }
 
 /*
@@ -267,11 +109,9 @@ void IO_WriteLampMask( IO_TypeDef *IO, uint32_t clrMask, uint32_t setMask, uint3
 * Return		: None
 *********************************************************************************************************
 */
-static void InitBeep( IO_TypeDef *IO )
-{
-	CYCLE_TASK_TypeDef * const this = &IO->beep;
-	
-	RepeatExecuteTaskInit(this, 10, IO);
+static void InitBeep(CYCLE_TASK_TypeDef *this)
+{	
+	RepeatExecuteTaskInit(this, 10, NULL);
 	RegisterRepeatExecuteTaskOnDevice_CallBack(this, __OpenBeep);
 	RegisterRepeatExecuteTaskOffDevice_CallBack(this, __CloseBeep);
 	
@@ -293,9 +133,12 @@ void __OpenBeep( void *devicePrt )
 	#if 0
 		IO_WriteOutputMask(devicePrt,0,IO_OUTPUT_MASK_BEEP,0);
 	#else
-		bsp_SetOutportBit(DO_BEEP);
-		bsp_OutportCycleTask();
+		IO_OPERATE_TypeDef *outputHandle = GetIO_OutputHandle();
+		
+		outputHandle->setOutputBit(outputHandle, BSP_DO_BEEP);
+		outputHandle->writeSync(outputHandle);
 	#endif
+	ECHO(DEBUG_KERNEL_IO, "[KERNEL-IO] 打开蜂鸣器");
 }
 
 /*
@@ -312,9 +155,166 @@ void __CloseBeep( void *devicePrt )
 	#if 0
 		IO_WriteOutputMask(devicePrt,IO_OUTPUT_MASK_BEEP,0,0);
 	#else
-		bsp_ClearOutportBit(DO_BEEP);
-		bsp_OutportCycleTask();
+		IO_OPERATE_TypeDef *outputHandle = GetIO_OutputHandle();
+		
+		outputHandle->clrOutputBit(outputHandle, BSP_DO_BEEP);
+		outputHandle->writeSync(outputHandle);
 	#endif
+	ECHO(DEBUG_KERNEL_IO, "[KERNEL-IO] 关闭蜂鸣器");
+}
+
+/*
+*********************************************************************************************************
+* Function Name : GetBeepHandle
+* Description	: 获取蜂鸣器句柄
+* Input			: None
+* Output		: None
+* Return		: None
+*********************************************************************************************************
+*/
+CYCLE_TASK_TypeDef *GetBeepHandle(void)
+{
+	return &g_BeepDevice;
+}
+
+/*
+*********************************************************************************************************
+* Function Name : IO_Init
+* Description	: IO初始化
+* Input			: None
+* Output		: None
+* Return		: None
+*********************************************************************************************************
+*/
+void IO_Init( void )
+{
+	InitBeep(&g_BeepDevice);
+	
+	ECHO(DEBUG_KERNEL_INIT, "IO初始化 .......... OK");
+}
+
+/*
+*********************************************************************************************************
+* Function Name : IO_Handler
+* Description	: IO任务处理
+* Input			: None
+* Output		: None
+* Return		: None
+*********************************************************************************************************
+*/
+static void IO_Handler(IO_TypeDef *this)
+{
+	/* IO输入 */
+	{
+		IO_OPERATE_TypeDef *inputHandle = GetIO_InputHandle();
+		inputHandle->readSync(inputHandle);
+		
+		uint32_t inputReg = 0;
+		uint32_t __reg = inputHandle->read(inputHandle);
+			
+		if (READ_BIT(__reg, BSP_BTN_BOOTRESET))
+		{
+			SET_BIT(inputReg, APP_IO_INPUT_MASK_NULL);
+		}
+		
+		this->inputReg = inputReg;
+	}
+	
+	/* IO输出 */
+	{
+		IO_OPERATE_TypeDef *outputHandle = GetIO_OutputHandle();
+		
+	#if 0
+		uint32_t outputReg = this->outputReg;
+		
+		if ( READ_BIT(outputReg, APP_IO_OUTPUT_MASK_BEEP) )
+		{
+			outputHandle->setOutputBit(outputHandle, BSP_DO_BEEP);
+		}
+		else
+		{
+			outputHandle->clrOutputBit(outputHandle, BSP_DO_BEEP);
+		}
+	#endif
+	
+		outputHandle->writeSync(outputHandle);
+	}
+	
+	/* 小灯信号 */
+	{
+		IO_OPERATE_TypeDef *lampHandle = GetIO_LampHandle();
+		
+		uint32_t lamp = this->lampReg;
+		
+		if ( READ_BIT(lamp, APP_IO_LAMP_MASK_COMM) )
+		{
+			lampHandle->setOutputBit(lampHandle, BSP_LAMP_BOARD_COM);
+		}
+		else
+		{
+			lampHandle->clrOutputBit(lampHandle, BSP_LAMP_BOARD_COM);
+		}
+		
+		if ( READ_BIT(lamp, APP_IO_LAMP_MASK_PUMP_OPEN) )
+		{
+			lampHandle->setOutputBit(lampHandle, BSP_LAMP_PUMP_START);
+		}
+		else
+		{
+			lampHandle->clrOutputBit(lampHandle, BSP_LAMP_PUMP_START);
+		}
+		
+		if ( READ_BIT(lamp, APP_IO_LAMP_MASK_PUMP_CLOSE) )
+		{
+			lampHandle->setOutputBit(lampHandle, BSP_LAMP_PUMP_STOP);
+		}
+		else
+		{
+			lampHandle->clrOutputBit(lampHandle, BSP_LAMP_PUMP_STOP);
+		}
+		
+		lampHandle->writeSync(lampHandle);
+	}
+}
+
+/*
+*********************************************************************************************************
+* Function Name : GetIOHandle
+* Description	: 获取IO句柄
+* Input			: None
+* Output		: None
+* Return		: None
+*********************************************************************************************************
+*/
+IO_TypeDef *GetIOHandle(void)
+{
+	return &g_IO_Device;
+}
+
+/*
+*********************************************************************************************************
+* Function Name : AppTaskIO
+* Description	: IO任务
+* Input			: None
+* Output		: None
+* Return		: None
+*********************************************************************************************************
+*/
+void AppTaskIO(void *p_arg)
+{
+	OS_ERR err;
+	(void)p_arg;
+	
+	while (1)
+	{	
+		OSSchedLock(&err);	
+				
+		IO_Handler(&g_IO_Device);
+		
+		OSSchedUnlock(&err);
+			
+		BSP_OS_TimeDlyMs(SAMPLE_PERIOD);		
+	}
 }
 
 /************************ (C) COPYRIGHT STMicroelectronics **********END OF FILE*************************/

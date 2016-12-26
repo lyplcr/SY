@@ -35,23 +35,39 @@
 *                              				Exported define
 *********************************************************************************************************
 */
-/**
- *	提供给用户调用的IO位掩码
- */
-#define IO_INPUT_MASK_NULL					0x00000001
+/*
+*********************************************************************************************************
+*                              				IO 输入位定义（用户层）
+*********************************************************************************************************
+*/
+#define APP_IO_INPUT_MASK_NULL				0x00000001
 
-#define IO_OUTPUT_MASK_BEEP					0x00000001
+/*
+*********************************************************************************************************
+*                              				IO 输出位定义（用户层）
+*********************************************************************************************************
+*/
+#define APP_IO_OUTPUT_MASK_BEEP				0x00000001
 
-#define IO_LAMP_MASK_COMM					0x00000001
-#define IO_LAMP_MASK_PUMP_OPEN				0x00000002
-#define IO_LAMP_MASK_PUMP_CLOSE				0x00000004
+/*
+*********************************************************************************************************
+*                              				IO 指示灯定义（用户层）
+*********************************************************************************************************
+*/
+#define APP_IO_LAMP_MASK_COMM				0x00000001
+#define APP_IO_LAMP_MASK_PUMP_OPEN			0x00000002
+#define APP_IO_LAMP_MASK_PUMP_CLOSE			0x00000004
 
 /*
 *********************************************************************************************************
 *                              				Exported types
 *********************************************************************************************************
 */
-typedef struct tagIO_TypeDef IO_TypeDef;
+typedef struct tagIO_TypeDef {
+	uint32_t inputReg;
+	uint32_t outputReg;
+	uint32_t lampReg;
+}IO_TypeDef;
 
 
 /*
@@ -71,7 +87,6 @@ typedef struct tagIO_TypeDef IO_TypeDef;
 *                              				Exported variables
 *********************************************************************************************************
 */
-extern struct tagIO_TypeDef *g_ioDevicePtr;
 
 /*
 *********************************************************************************************************
@@ -79,14 +94,11 @@ extern struct tagIO_TypeDef *g_ioDevicePtr;
 *********************************************************************************************************
 */
 void IO_Init( void );
-void IO_Task( void );
-void *GetIO_BeepHandle( IO_TypeDef *IO );
 
-uint32_t IO_ReadInput( IO_TypeDef *IO );
-uint32_t IO_ReadOutput( IO_TypeDef *IO );
-uint32_t IO_ReadLamp( IO_TypeDef *IO );
-void IO_WriteOutputMask( IO_TypeDef *IO, uint32_t clrMask, uint32_t setMask, uint32_t toggleMask );
-void IO_WriteLampMask( IO_TypeDef *IO, uint32_t clrMask, uint32_t setMask, uint32_t toggleMask );
+CYCLE_TASK_TypeDef *GetBeepHandle(void);
+IO_TypeDef *GetIOHandle(void);
+void IO_WriteOutputMask( IO_TypeDef *this, uint32_t clrMask, uint32_t setMask, uint32_t revMask );
+void IO_WriteLampMask( IO_TypeDef *this, uint32_t clrMask, uint32_t setMask, uint32_t revMask );
 
 void __OpenBeep( void *devicePrt );
 void __CloseBeep( void *devicePrt );

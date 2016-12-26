@@ -111,11 +111,8 @@
 *                              				Private typedef
 *********************************************************************************************************
 */
-typedef enum
-{
-	BIT_PUMP_START 	= 0x00000040,
-	BIT_PUMP_STOP 	= 0x00000080,
-}LAMP_74HC595_ENUM;
+#define BIT_PUMP_START 						0x00000040
+#define BIT_PUMP_STOP 						0x00000080
 
 /*
 *********************************************************************************************************
@@ -131,21 +128,57 @@ typedef enum
 
 /*
 *********************************************************************************************************
-*                              				Private variables
-*********************************************************************************************************
-*/
-static uint32_t g_InportData;
-static uint32_t g_InportShadow;
-static uint32_t g_OutportData;
-static uint32_t g_OutportShadow;
-static uint32_t g_LampData;
-static uint32_t g_LampShadow;
-
-/*
-*********************************************************************************************************
 *                              				Private function prototypes
 *********************************************************************************************************
 */
+static void bsp_InitInport(struct tagIO_OPERATE_TypeDef *this);
+static uint32_t bsp_InportRead(struct tagIO_OPERATE_TypeDef *this);
+static void bsp_InportCycleTask(struct tagIO_OPERATE_TypeDef *this);
+
+static void bsp_InitOutport(struct tagIO_OPERATE_TypeDef *this);
+static void bsp_SetOutportBit(struct tagIO_OPERATE_TypeDef *this, uint32_t bit);
+static void bsp_ClrOutportBit(struct tagIO_OPERATE_TypeDef *this, uint32_t bit);
+static void bsp_RevOutportBit(struct tagIO_OPERATE_TypeDef *this, uint32_t bit);
+static void bsp_SetOutport(struct tagIO_OPERATE_TypeDef *this, uint32_t value);
+static uint32_t bsp_GetOutport(struct tagIO_OPERATE_TypeDef *this);
+static void bsp_OutportCycleTask(struct tagIO_OPERATE_TypeDef *this);
+
+static void bsp_InitLamp(struct tagIO_OPERATE_TypeDef *this);
+static void bsp_LampCycleTask(struct tagIO_OPERATE_TypeDef *this);
+
+
+/*
+*********************************************************************************************************
+*                              				Private variables
+*********************************************************************************************************
+*/
+static IO_OPERATE_TypeDef g_IOInput = {
+	.init						= bsp_InitInport,
+	.read						= bsp_InportRead,
+	.readSync					= bsp_InportCycleTask,
+};
+
+static IO_OPERATE_TypeDef g_IOOutput = {
+	.init						= bsp_InitOutport,
+	.read						= bsp_GetOutport,
+	
+	.setOutputBit				= bsp_SetOutportBit,
+	.clrOutputBit				= bsp_ClrOutportBit,
+	.revOutputBit				= bsp_RevOutportBit,
+	.setOutput					= bsp_SetOutport,
+	.writeSync					= bsp_OutportCycleTask,
+};
+
+static IO_OPERATE_TypeDef g_IOLamp = {
+	.init						= bsp_InitLamp,
+	.read						= bsp_GetOutport,
+	
+	.setOutputBit				= bsp_SetOutportBit,
+	.clrOutputBit				= bsp_ClrOutportBit,
+	.revOutputBit				= bsp_RevOutportBit,
+	.setOutput					= bsp_SetOutport,
+	.writeSync					= bsp_LampCycleTask,
+};
 
 /*
 *********************************************************************************************************
@@ -158,6 +191,48 @@ static uint32_t g_LampShadow;
 *                              				输入端口
 *********************************************************************************************************
 */
+/*
+*********************************************************************************************************
+* Function Name : GetIO_InputHandle
+* Description	: 获取IO输入句柄
+* Input			: None
+* Output		: None
+* Return		: None
+*********************************************************************************************************
+*/
+IO_OPERATE_TypeDef *GetIO_InputHandle(void)
+{
+	return &g_IOInput;
+}	
+
+/*
+*********************************************************************************************************
+* Function Name : GetIO_OutputHandle
+* Description	: 获取IO输出句柄
+* Input			: None
+* Output		: None
+* Return		: None
+*********************************************************************************************************
+*/
+IO_OPERATE_TypeDef *GetIO_OutputHandle(void)
+{
+	return &g_IOOutput;
+}
+
+/*
+*********************************************************************************************************
+* Function Name : GetIO_LampHandle
+* Description	: 获取指示灯句柄
+* Input			: None
+* Output		: None
+* Return		: None
+*********************************************************************************************************
+*/
+IO_OPERATE_TypeDef *GetIO_LampHandle(void)
+{
+	return &g_IOLamp;
+}
+
 /*
 *********************************************************************************************************
 * Function Name : Init_74HC165
@@ -247,14 +322,19 @@ uint32_t bsp_74HC165_Read( void )
 * Return		: None
 *********************************************************************************************************
 */
-static void bsp_InitInport(void)
+static void bsp_InitInport(struct tagIO_OPERATE_TypeDef *this)
 {
 	Init_74HC165();	
 	
-	g_InportShadow = 0x00000000 ^ INPUT_REV;
-	g_InportData   = 0x00000000 ^ INPUT_REV;
+	const uint32_t IO_SHAKE_TIME = 20;
+	bsp_StartAutoTimer(ID_TIM_BSP_IO, IO_SHAKE_TIME);
 	
-	bsp_InportCycleTask();	
+	this->shadowReg = 0x00000000 ^ INPUT_REV;
+	this->dataReg   = 0x00000000 ^ INPUT_REV;
+	if (this->readSync)
+	{
+		this->readSync(this);
+	}
 }
 
 /*
@@ -266,9 +346,9 @@ static void bsp_InitInport(void)
 * Return		: None
 *********************************************************************************************************
 */
-uint32_t bsp_InportRead( void )
+static uint32_t bsp_InportRead(struct tagIO_OPERATE_TypeDef *this)
 {	
-	return (g_InportData^INPUT_REV);
+	return (this->dataReg ^ INPUT_REV);
 }
 
 /*
@@ -280,25 +360,14 @@ uint32_t bsp_InportRead( void )
 * Return		: None
 *********************************************************************************************************
 */
-void bsp_InportCycleTask(void)
+static void bsp_InportCycleTask(struct tagIO_OPERATE_TypeDef *this)
 {
-	uint32_t tempu32 = 0;
-	
-	/* 	
-		如果检测到输入信号发生变化，本周期将更新影子寄存器，下个周期再次比对
-		输入信号是否发生变化，如果不变了，将影子寄存器的值存储到输入寄存器。
-		效果相当于延迟一个周期，起到防抖效果。
-	*/	
-	if (tempu32 != g_InportShadow)
+	/* 防抖 */
+	if ( !bsp_CheckTimer(ID_TIM_BSP_IO) )
 	{
-		g_InportShadow = tempu32;
-	}	
-	else
-	{
-		g_InportData = g_InportShadow;
+		return;
 	}
 	
-	ECHO(DEBUG_BSP_IO,"in   : %08x H",g_InportData^INPUT_REV);
 }
 
 /*
@@ -430,23 +499,23 @@ static void bsp_InitBeep( void )
 * Return		: None
 *********************************************************************************************************
 */
-void bsp_SetOutportBit( uint32_t bit )
+static void bsp_SetOutportBit(struct tagIO_OPERATE_TypeDef *this, uint32_t bit)
 { 
-	SET_BIT(g_OutportShadow, bit);
+	SET_BIT(this->shadowReg, bit);
 } 
 
 /*
 *********************************************************************************************************
-* Function Name : bsp_ClearOutportBit
+* Function Name : bsp_ClrOutportBit
 * Description	: 清除输出位
 * Input			: None
 * Output		: None
 * Return		: None
 *********************************************************************************************************
 */
-void bsp_ClearOutportBit( uint32_t bit )
+static void bsp_ClrOutportBit(struct tagIO_OPERATE_TypeDef *this, uint32_t bit)
 { 
-	CLEAR_BIT(g_OutportShadow, bit);
+	CLEAR_BIT(this->shadowReg, bit);
 } 
   
 /*
@@ -458,9 +527,9 @@ void bsp_ClearOutportBit( uint32_t bit )
 * Return		: None
 *********************************************************************************************************
 */
-void bsp_ToggleOutportBit( uint32_t bit )
+static void bsp_RevOutportBit(struct tagIO_OPERATE_TypeDef *this, uint32_t bit)
 { 
-	XOR_BIT(g_OutportShadow, bit); 
+	XOR_BIT(this->shadowReg, bit); 
 } 
     
 /*
@@ -472,10 +541,20 @@ void bsp_ToggleOutportBit( uint32_t bit )
 * Return		: None
 *********************************************************************************************************
 */
-void bsp_SetOutport(uint32_t out)
+static void bsp_SetOutport(struct tagIO_OPERATE_TypeDef *this, uint32_t value)
 { 
-	WRITE_REG(g_OutportShadow, out);
-	g_OutportData = ~g_OutportShadow;
+	WRITE_REG(this->shadowReg, value);
+	
+	this->dataReg = ~this->shadowReg;
+	
+	/**
+		需要立即执行同步，因为此时数据寄存器的值为临时值,
+		如果此时读取数据寄存器将出现错误。
+	*/
+	if (this->writeSync)
+	{
+		this->writeSync(this);
+	}
 }
  
 /*
@@ -487,12 +566,9 @@ void bsp_SetOutport(uint32_t out)
 * Return		: None
 *********************************************************************************************************
 */
-uint32_t bsp_GetOutport( void )
+static uint32_t bsp_GetOutport(struct tagIO_OPERATE_TypeDef *this)
 {
-	/* 防止设置值后，并未执行循环，导致读取的值错误 */
-	bsp_OutportCycleTask();
-	
-	return g_OutportData;
+	return this->dataReg;
 }
 
 /*
@@ -504,15 +580,16 @@ uint32_t bsp_GetOutport( void )
 * Return		: None
 *********************************************************************************************************
 */
-void bsp_OutportCycleTask( void )
+static void bsp_OutportCycleTask(struct tagIO_OPERATE_TypeDef *this)
 {
-	uint32_t flag = g_OutportData ^ g_OutportShadow; 
+	uint32_t flag = this->dataReg ^ this->shadowReg; 
 	
-	if ( flag )		//如果有输出需要改变，刷新输出
+	//如果有输出需要改变，刷新输出
+	if (flag)		
 	{	
-		if (flag & DO_BEEP)
+		if (flag & BSP_DO_BEEP)
 		{
-			if (g_OutportShadow & DO_BEEP)
+			if (this->shadowReg & BSP_DO_BEEP)
 			{
 				HAL_GPIO_WritePin(BEEP_GPIO_PORT,BEEP_GPIO_PIN,GPIO_PIN_SET);
 			}
@@ -522,10 +599,8 @@ void bsp_OutportCycleTask( void )
 			}
 		}
 		
-		g_OutportData = g_OutportShadow;
+		this->dataReg = this->shadowReg;
 	}
-
-	ECHO(DEBUG_BSP_IO,"out  : %08x H",g_OutportData);
 }
 
 /*
@@ -537,15 +612,17 @@ void bsp_OutportCycleTask( void )
 * Return		: None
 *********************************************************************************************************
 */
-static void bsp_InitOutport( void )
+static void bsp_InitOutport(struct tagIO_OPERATE_TypeDef *this)
 {
 	bsp_Init_74HC595();
 	bsp_InitBeep();
 	
-	g_OutportShadow = 0x00000000;
-	g_OutportData = ~g_OutportShadow;
-	
-	bsp_OutportCycleTask();
+	this->shadowReg = 0x00000000;
+	this->dataReg = ~this->shadowReg;
+	if (this->writeSync)
+	{
+		this->writeSync(this);
+	}
 }
 
 /*
@@ -562,7 +639,7 @@ static void bsp_InitOutport( void )
 * Return		: None
 *********************************************************************************************************
 */
-static void bsp_InitLamp( void )
+static void bsp_InitLamp(struct tagIO_OPERATE_TypeDef *this)
 {
 	GPIO_InitTypeDef GPIO_InitStructure; 
 	
@@ -576,84 +653,12 @@ static void bsp_InitLamp( void )
 	
 	HAL_GPIO_WritePin(LED_GPIO_PORT,LED_GPIO_PIN,GPIO_PIN_SET);
 	
-	g_LampShadow = 0x00000000;
-	g_LampData = ~g_LampShadow;
-	
-	bsp_LampCycleTask();
-}
-
-/*
-*********************************************************************************************************
-* Function Name : bsp_SetLampBit
-* Description	: 设置小灯输出位
-* Input			: None
-* Output		: None
-* Return		: None
-*********************************************************************************************************
-*/
-void bsp_SetLampBit( uint32_t bit )
-{ 
-	SET_BIT(g_LampShadow, bit);
-} 
-
-/*
-*********************************************************************************************************
-* Function Name : bsp_ClearLampBit
-* Description	: 清除小灯输出位
-* Input			: None
-* Output		: None
-* Return		: None
-*********************************************************************************************************
-*/
-void bsp_ClearLampBit( uint32_t bit )
-{ 
-	CLEAR_BIT(g_LampShadow, bit);
-} 
-  
-/*
-*********************************************************************************************************
-* Function Name : bsp_ToggleLampBit
-* Description	: 翻转小灯输出位
-* Input			: None
-* Output		: None
-* Return		: None
-*********************************************************************************************************
-*/
-void bsp_ToggleLampBit( uint32_t bit )
-{ 
-	XOR_BIT(g_LampShadow, bit); 
-} 
-    
-/*
-*********************************************************************************************************
-* Function Name : bsp_SetLamp
-* Description	: 设置小灯输出值
-* Input			: None
-* Output		: None
-* Return		: None
-*********************************************************************************************************
-*/
-void bsp_SetLamp(uint32_t out)
-{ 
-	WRITE_REG(g_LampShadow, out);
-	g_LampData = ~g_LampShadow;
-}
- 
-/*
-*********************************************************************************************************
-* Function Name : bsp_GetLamp
-* Description	: 获取小灯输出值
-* Input			: None
-* Output		: None
-* Return		: None
-*********************************************************************************************************
-*/
-uint32_t bsp_GetLamp( void )
-{
-	/* 防止设置值后，并未执行循环，导致读取的值错误 */
-	bsp_LampCycleTask();
-	
-	return g_LampData;
+	this->shadowReg = 0x00000000;
+	this->dataReg = ~this->shadowReg;
+	if (this->writeSync)
+	{
+		this->writeSync(this);
+	}
 }
 
 /*
@@ -665,15 +670,15 @@ uint32_t bsp_GetLamp( void )
 * Return		: None
 *********************************************************************************************************
 */
-void bsp_LampCycleTask( void )
+static void bsp_LampCycleTask(struct tagIO_OPERATE_TypeDef *this)
 {
-	uint32_t tempu32 = g_LampData ^ g_LampShadow; 
+	uint32_t flag = this->dataReg ^ this->shadowReg; 
 	
-	if( tempu32 )		//如果有输出需要改变，刷新输出
+	if( flag )		//如果有输出需要改变，刷新输出
 	{	
-		if (tempu32 & LAMP_BOARD_COM)
+		if (flag & BSP_LAMP_BOARD_COM)
 		{
-			if (g_LampShadow & LAMP_BOARD_COM)
+			if (this->shadowReg & BSP_LAMP_BOARD_COM)
 			{
 				HAL_GPIO_WritePin(LED_GPIO_PORT,LED_GPIO_PIN,GPIO_PIN_RESET);
 			}
@@ -687,17 +692,17 @@ void bsp_LampCycleTask( void )
 		{
 			uint32_t value = 0;
 			
-			if (tempu32 & LAMP_PUMP_START)
+			if (flag & BSP_LAMP_PUMP_START)
 			{
-				if (g_LampShadow & LAMP_PUMP_START)
+				if (this->shadowReg & BSP_LAMP_PUMP_START)
 				{
 					SET_BIT(value, BIT_PUMP_START);
 				}
 			}
 			
-			if (tempu32 & LAMP_PUMP_STOP)
+			if (flag & BSP_LAMP_PUMP_STOP)
 			{
-				if (g_LampShadow & LAMP_PUMP_STOP)
+				if (this->shadowReg & BSP_LAMP_PUMP_STOP)
 				{
 					SET_BIT(value, BIT_PUMP_STOP);
 				}
@@ -706,10 +711,8 @@ void bsp_LampCycleTask( void )
 			bsp_74HC595_Write(value);
 		}
 
-		g_LampData = g_LampShadow;
+		this->dataReg = this->shadowReg;
 	}
-
-	ECHO(DEBUG_BSP_IO,"out  : %08x H",g_LampData);
 }
 
 /*
@@ -724,13 +727,13 @@ void bsp_LampCycleTask( void )
 void bsp_InitIO( void )
 {
 	/* 输入IO初始化 */ 
-	bsp_InitInport();
+	g_IOInput.init(&g_IOInput);
 	
 	/* 输出IO初始化 */
-	bsp_InitOutport();
+	g_IOOutput.init(&g_IOOutput);
 	
 	/* 小灯初始化 */
-	bsp_InitLamp();
+	g_IOLamp.init(&g_IOLamp);
 	
 	ECHO(DEBUG_BSP_INIT, "IO初始化 .......... OK");
 }

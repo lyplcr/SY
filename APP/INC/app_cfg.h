@@ -68,6 +68,7 @@
 #define  APP_CFG_TASK_GUI_REFRESH_STK_SIZE                 	256u
 #define  APP_CFG_TASK_DEBUG_VIEW_STK_SIZE					256u
 #define  APP_CFG_TASK_DEBUG_VIEW_REFRESH_STK_SIZE			512u
+#define  APP_CFG_TASK_IO_STK_SIZE                 			256u
 
 /*
 *********************************************************************************************************
@@ -78,6 +79,7 @@
 #define  APP_CFG_TASK_UPDATE_PRIO                          	3u
 #define  APP_CFG_TASK_COM_PRIO                             	4u
 #define  APP_CFG_TASK_USER_IF_PRIO                         	5u
+#define  APP_CFG_TASK_IO_PRIO                       		(OS_CFG_PRIO_MAX - 11u)
 #define  APP_CFG_TASK_GUI_PRIO                        		(OS_CFG_PRIO_MAX - 10u)
 #define  APP_CFG_TASK_GUI_REFRESH_PRIO						(OS_CFG_PRIO_MAX - 9u)
 #define  APP_CFG_TASK_DEBUG_VIEW_PRIO                       (OS_CFG_PRIO_MAX - 6u)
